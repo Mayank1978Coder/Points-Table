@@ -206,8 +206,8 @@ def generate_scoreboard():
 
         for i, team in enumerate(teams):
             if i >= len(team_positions):
-            break
-        draw_team(img, draw, team_positions[i], i + 1, team)
+                break
+            draw_team(img, draw, team_positions[i], i + 1, team)
 
         output_path = os.path.join(BASE_DIR, OUTPUT_PATH)
         temp_path = output_path + ".tmp"
