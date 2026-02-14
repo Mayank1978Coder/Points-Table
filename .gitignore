@@ -1,0 +1,23 @@
+# Generated files (created at runtime)
+output_stream.png
+output_stream.png.tmp
+
+# Original local-only files (not needed for hosting)
+main.py
+main_unified.py
+crop_logos.py
+init.bat
+run.bat
+scoreboard.html
+
+# Extra/unused files
+ChakraPetch.zip
+ChakraPetch_temp/
+logos_or/
+zutsu_cs_stream_pt.png
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
