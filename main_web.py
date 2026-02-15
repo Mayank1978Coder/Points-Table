@@ -194,8 +194,8 @@ def draw_team(img, draw, pos, rank, team, text_color="black"):
 # Store the last error for the /debug route
 _last_error = None
 
-def generate_scoreboard():
-    """Generate the scoreboard image and save it to OUTPUT_PATH."""
+def generate_scoreboard_image():
+    """Generate the scoreboard image and return it as a PIL Image object."""
     global _last_error
     try:
         print("Fetching data from Google Sheets...")
@@ -203,8 +203,6 @@ def generate_scoreboard():
         print(f"Loaded {len(teams)} teams.")
 
         template_path = os.path.join(BASE_DIR, IMAGE_PATH)
-        print(f"Looking for template at: {template_path}")
-        print(f"Template exists: {os.path.exists(template_path)}")
         if os.path.exists(template_path):
             img = Image.open(template_path).convert("RGBA")
         else:
@@ -217,21 +215,27 @@ def generate_scoreboard():
                 break
             draw_team(img, draw, team_positions[i], i + 1, team)
 
-        output_path = os.path.join(BASE_DIR, OUTPUT_PATH)
-        temp_path = output_path + ".tmp"
-        img.save(temp_path, format="PNG")
-        os.replace(temp_path, output_path)
-        print(f"Scoreboard saved to: {output_path}")
         _last_error = None
+        return img
     except Exception as e:
         _last_error = str(e)
-        print(f"[ERROR in generate_scoreboard] {e}")
+        print(f"[ERROR in generate_scoreboard_image] {e}")
         import traceback
         traceback.print_exc()
         raise
 
 
-# --- Background Thread for Image Generation ---
+def generate_scoreboard():
+    """Generate the scoreboard image and save it to OUTPUT_PATH (for local dev)."""
+    img = generate_scoreboard_image()
+    output_path = os.path.join(BASE_DIR, OUTPUT_PATH)
+    temp_path = output_path + ".tmp"
+    img.save(temp_path, format="PNG")
+    os.replace(temp_path, output_path)
+    print(f"Scoreboard saved to: {output_path}")
+
+
+# --- Background Thread for Image Generation (local dev only) ---
 POLLING_INTERVAL = 5  # seconds between each refresh
 
 def scoreboard_loop():
@@ -288,7 +292,6 @@ def index():
 def debug_info():
     """Show diagnostic info to troubleshoot deployment issues."""
     files = os.listdir(BASE_DIR)
-    output_path = os.path.join(BASE_DIR, OUTPUT_PATH)
     template_path = os.path.join(BASE_DIR, IMAGE_PATH)
     logos_path = os.path.join(BASE_DIR, LOGO_DIR)
     logo_files = os.listdir(logos_path) if os.path.isdir(logos_path) else ["FOLDER NOT FOUND"]
@@ -297,8 +300,6 @@ def debug_info():
         "all_files": files,
         "template_exists": os.path.exists(template_path),
         "template_path": template_path,
-        "output_exists": os.path.exists(output_path),
-        "output_path": output_path,
         "font_exists": os.path.exists(FONT_PATH),
         "font_bold_exists": os.path.exists(FONT_BOLD_PATH),
         "logos_folder": logo_files,
@@ -310,16 +311,23 @@ def debug_info():
 
 @app.route("/scoreboard.png")
 def scoreboard_image():
-    """Serve the latest generated scoreboard image."""
-    output_path = os.path.join(BASE_DIR, OUTPUT_PATH)
-    if os.path.exists(output_path):
-        return send_file(output_path, mimetype="image/png")
-    else:
-        # Return a 1x1 transparent PNG as placeholder
-        return Response(b"", status=404, mimetype="text/plain")
+    """Generate and serve the scoreboard image on-demand.
+    
+    On Vercel (serverless), the image is generated fresh each request
+    and returned from memory — no disk writes needed.
+    For local dev, it also works but the background thread handles caching.
+    """
+    try:
+        img = generate_scoreboard_image()
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        return send_file(buf, mimetype="image/png")
+    except Exception:
+        return Response(b"Error generating scoreboard", status=500, mimetype="text/plain")
 
 
-# --- Entry Point ---
+# --- Entry Point (local development only — not used on Vercel) ---
 if __name__ == "__main__":
     # Print startup diagnostics
     print(f"=== STARTUP DIAGNOSTICS ===")
